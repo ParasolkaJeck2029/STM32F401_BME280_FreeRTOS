@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include "BME280_FreeRTOS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,9 +96,17 @@ typedef struct{
 	uint16_t reg;
 	uint8_t value;
 	uint8_t nom_of_func;
+	uint8_t * result;
+	void (* ptr_check_con)(uint8_t * result);
 	void (* ptr_set_one_par)(uint16_t reg, uint8_t value);
-
+	void (* ptr_init)();
 }I2C_Queue_t;
+
+enum {
+	FUNC_VOID,
+	FUNC_PTR_UINT8,
+	FUNK_UINT16_UINT8
+}NOM_OF_FUNC;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -202,6 +211,15 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
+  I2C_Queue_t i2c_msg;
+  uint8_t chec_con_res;
+  i2c_msg.result = &chec_con_res;
+  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+  i2c_msg.ptr_check_con = BME280_Check_Conection;
+  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+  UART_Queue_t uart_msg;
+  sprintf(uart_msg.buff, "Connection to BME280 status: 0x%x\r\n", chec_con_res);
+  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -527,10 +545,20 @@ void StartADC_Task(void *argument)
 void StartI2C_Task(void *argument)
 {
   /* USER CODE BEGIN StartI2C_Task */
+	I2C_Queue_t msg;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  osMessageQueueGet(I2C_QueueHandle, &msg, 0, osWaitForever);
+	  switch(msg.nom_of_func){
+	  case FUNC_PTR_UINT8: msg.ptr_check_con(msg.result);break;
+	  case FUNC_VOID: msg.ptr_init();break;
+	  default: {
+		  UART_Queue_t uart_msg;
+		  sprintf(uart_msg.buff, "Error value of nom_of_func\r\n");
+		  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
+	  }break;
+	  }
   }
   /* USER CODE END StartI2C_Task */
 }

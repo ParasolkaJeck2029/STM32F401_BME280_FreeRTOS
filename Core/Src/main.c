@@ -466,6 +466,8 @@ void StartStabIndicationTask(void *argument)
   {
 	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 	HAL_IWDG_Refresh(&hiwdg);
+	sprintf(msg.buff, "Toggle led\r\n");
+	osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
     osDelay(100);
   }
   /* USER CODE END 5 */
@@ -481,10 +483,12 @@ void StartStabIndicationTask(void *argument)
 void StartUART_Task(void *argument)
 {
   /* USER CODE BEGIN StartUART_Task */
+	UART_Queue_t msg;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osMessageQueueGet(UART_queueHandle, &msg, 0, osWaitForever);
+    HAL_UART_Transmit(&huart1, &msg.buff, strlen(msg.buff), osWaitForever);
   }
   /* USER CODE END StartUART_Task */
 }
@@ -499,10 +503,16 @@ void StartUART_Task(void *argument)
 void StartADC_Task(void *argument)
 {
   /* USER CODE BEGIN StartADC_Task */
+	UART_Queue_t msg;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    HAL_ADC_Start(&hadc1);
+    uint16_t adc_value;
+    adc_value = HAL_ADC_GetValue(&hadc1);
+    sprintf(msg.buff, "ADC value: %d\r\n", adc_value);
+    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+    osDelay(1000);
   }
   /* USER CODE END StartADC_Task */
 }

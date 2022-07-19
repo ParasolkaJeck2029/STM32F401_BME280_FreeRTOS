@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,7 +88,16 @@ const osMessageQueueAttr_t I2C_Queue_attributes = {
   .name = "I2C_Queue"
 };
 /* USER CODE BEGIN PV */
+typedef struct{
+	char buff[100];
+}UART_Queue_t;
+typedef struct{
+	uint16_t reg;
+	uint8_t value;
+	uint8_t nom_of_func;
+	void (* ptr_set_one_par)(uint16_t reg, uint8_t value);
 
+}I2C_Queue_t;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -450,10 +460,13 @@ static void MX_GPIO_Init(void)
 void StartStabIndicationTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
+	UART_Queue_t msg;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+	HAL_IWDG_Refresh(&hiwdg);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }

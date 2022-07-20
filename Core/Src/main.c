@@ -89,6 +89,7 @@ const osMessageQueueAttr_t I2C_Queue_attributes = {
   .name = "I2C_Queue"
 };
 /* USER CODE BEGIN PV */
+extern BME280_Calibrate_parametrs BME280_Cal_par;
 typedef struct{
 	char buff[100];
 }UART_Queue_t;
@@ -99,13 +100,15 @@ typedef struct{
 	uint8_t * result;
 	void (* ptr_check_con)(uint8_t * result);
 	void (* ptr_set_one_par)(uint16_t reg, uint8_t value);
-	void (* ptr_init)();
+	void (* ptr_void)();
+	float (* ptr_read_value)();
 }I2C_Queue_t;
 
 enum {
 	FUNC_VOID,
 	FUNC_PTR_UINT8,
-	FUNK_UINT16_UINT8
+	FUNC_UINT16_UINT8,
+	FUNC_R_FLOAT
 }NOM_OF_FUNC;
 
 uint8_t conection_status;
@@ -219,8 +222,13 @@ int main(void)
   i2c_msg.ptr_check_con = BME280_Check_Conection;
   osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
   UART_Queue_t uart_msg;
-  sprintf(uart_msg.buff, "Connection to BME280 status: 0x%x\r\n", conection_status);
+  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
   osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
+
+  i2c_msg.ptr_void = BME280_ReadCalibration;
+  i2c_msg.nom_of_func = FUNC_VOID;
+  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
   /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
@@ -488,6 +496,13 @@ void StartStabIndicationTask(void *argument)
 	sprintf(msg.buff, "Toggle led\r\n");
 	osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
     osDelay(100);
+    sprintf(msg.buff, "Printing calibration parameters:\n\rT1: %d\n\rT2: %d\n\rT3: %d\n\r", BME280_Cal_par.T1, BME280_Cal_par.T2, BME280_Cal_par.T3);
+    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+    sprintf(msg.buff, "P1: %d\n\rP2: %d\n\rP3: %d\n\rP4: %d\n\rP5: %d\n\rP6: %d\n\rP7: %d\n\rP8: %d\n\rP9: %d\n\r", BME280_Cal_par.P1, BME280_Cal_par.P2, BME280_Cal_par.P3, BME280_Cal_par.P4, BME280_Cal_par.P5, BME280_Cal_par.P6, BME280_Cal_par.P7, BME280_Cal_par.P8, BME280_Cal_par.P9);
+    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+    sprintf(msg.buff, "H1: %d\n\rH2: %d\n\rH3: %d\n\rH4: %d\n\rH5: %d\n\rH6: %d\n\r", BME280_Cal_par.H1, BME280_Cal_par.H2, BME280_Cal_par.H3, BME280_Cal_par.H4, BME280_Cal_par.H6);
+    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+
   }
   /* USER CODE END 5 */
 }
@@ -553,7 +568,7 @@ void StartI2C_Task(void *argument)
 	  osMessageQueueGet(I2C_QueueHandle, &msg, 0, osWaitForever);
 	  switch(msg.nom_of_func){
 	  case FUNC_PTR_UINT8: msg.ptr_check_con(msg.result);break;
-	  case FUNC_VOID: msg.ptr_init();break;
+	  case FUNC_VOID: msg.ptr_void();break;
 	  default: {
 		  UART_Queue_t uart_msg;
 		  sprintf(uart_msg.buff, "Error value of nom_of_func\r\n");

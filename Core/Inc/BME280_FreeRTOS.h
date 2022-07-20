@@ -114,8 +114,23 @@ typedef struct
 	char H6;
 }BME280_Calibrate_parametrs;
 
+void Error();
+
 void BME280_Check_Conection(uint8_t * result);
 
+uint8_t I2Cx_ReadData(uint16_t Addr, uint8_t Reg);
+void I2Cx_ReadData16(uint16_t Addr, uint8_t Reg, uint16_t *Value);
+void I2Cx_ReadData24(uint16_t Addr, uint8_t Reg, uint32_t *Value);
 
+uint8_t BME280_ReadReg(uint8_t Reg);
+void BME280_ReadReg_S16(uint8_t Reg, int16_t *Value);
+void BME280_ReadReg_S24(uint8_t Reg, int32_t *Value);
+void BME280_ReadReg_U16(uint8_t Reg, uint16_t *Value);
+void BME280_ReadReg_U24(uint8_t Reg, uint32_t *Value);
+
+void I2Cx_WriteData(uint16_t Addr, uint8_t Reg, uint8_t Value);
+void I2Cx_WriteReg(uint8_t Reg, uint8_t Value);
+
+void BME280_ReadCalibration();
 
 #endif /* INC_BME280_FREERTOS_H_ */

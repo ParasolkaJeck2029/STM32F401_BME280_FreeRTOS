@@ -107,6 +107,8 @@ enum {
 	FUNC_PTR_UINT8,
 	FUNK_UINT16_UINT8
 }NOM_OF_FUNC;
+
+uint8_t conection_status;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -212,13 +214,12 @@ int main(void)
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   I2C_Queue_t i2c_msg;
-  uint8_t chec_con_res;
-  i2c_msg.result = &chec_con_res;
+  i2c_msg.result = &conection_status;
   i2c_msg.nom_of_func = FUNC_PTR_UINT8;
   i2c_msg.ptr_check_con = BME280_Check_Conection;
   osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
   UART_Queue_t uart_msg;
-  sprintf(uart_msg.buff, "Connection to BME280 status: 0x%x\r\n", chec_con_res);
+  sprintf(uart_msg.buff, "Connection to BME280 status: 0x%x\r\n", conection_status);
   osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
   /* USER CODE END RTOS_EVENTS */
 

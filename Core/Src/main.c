@@ -85,6 +85,13 @@ const osThreadAttr_t BtnReadTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for UART_DataReqTas */
+osThreadId_t UART_DataReqTasHandle;
+const osThreadAttr_t UART_DataReqTas_attributes = {
+  .name = "UART_DataReqTas",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 /* Definitions for UART_queue */
 osMessageQueueId_t UART_queueHandle;
 const osMessageQueueAttr_t UART_queue_attributes = {
@@ -94,6 +101,11 @@ const osMessageQueueAttr_t UART_queue_attributes = {
 osMessageQueueId_t I2C_QueueHandle;
 const osMessageQueueAttr_t I2C_Queue_attributes = {
   .name = "I2C_Queue"
+};
+/* Definitions for UART_DataCountingSem01 */
+osSemaphoreId_t UART_DataCountingSem01Handle;
+const osSemaphoreAttr_t UART_DataCountingSem01_attributes = {
+  .name = "UART_DataCountingSem01"
 };
 /* USER CODE BEGIN PV */
 extern BME280_Calibrate_parametrs BME280_Cal_par;
@@ -148,6 +160,7 @@ void StartUART_Task(void *argument);
 void StartADC_Task(void *argument);
 void StartI2C_Task(void *argument);
 void StartBtnReadTask(void *argument);
+void StartUART_DataReqTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void bme_init_queues();
@@ -201,6 +214,10 @@ int main(void)
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* creation of UART_DataCountingSem01 */
+  UART_DataCountingSem01Handle = osSemaphoreNew(10, 10, &UART_DataCountingSem01_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -235,6 +252,9 @@ int main(void)
 
   /* creation of BtnReadTask */
   BtnReadTaskHandle = osThreadNew(StartBtnReadTask, NULL, &BtnReadTask_attributes);
+
+  /* creation of UART_DataReqTas */
+  UART_DataReqTasHandle = osThreadNew(StartUART_DataReqTask, NULL, &UART_DataReqTas_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -667,10 +687,34 @@ void StartBtnReadTask(void *argument)
     	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(15);}
     	sprintf(msg.buff, "Button relised\r\n");
     	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	osSemaphoreAcquire(UART_DataCountingSem01Handle, 100);
     }
     osDelay(10);
   }
   /* USER CODE END StartBtnReadTask */
+}
+
+/* USER CODE BEGIN Header_StartUART_DataReqTask */
+/**
+* @brief Function implementing the UART_DataReqTas thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUART_DataReqTask */
+void StartUART_DataReqTask(void *argument)
+{
+  /* USER CODE BEGIN StartUART_DataReqTask */
+	UART_Queue_t msg;
+  /* Infinite loop */
+  for(;;)
+  {
+	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
+		sprintf(msg.buff, "Button action\r\n");
+		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+	}
+    osDelay(1);
+  }
+  /* USER CODE END StartUART_DataReqTask */
 }
 
 /**

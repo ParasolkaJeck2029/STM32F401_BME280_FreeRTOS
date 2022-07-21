@@ -211,7 +211,7 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of UART_queue */
-  UART_queueHandle = osMessageQueueNew (8, sizeof(UART_Queue_t), &UART_queue_attributes);
+  UART_queueHandle = osMessageQueueNew (16, sizeof(UART_Queue_t), &UART_queue_attributes);
 
   /* creation of I2C_Queue */
   I2C_QueueHandle = osMessageQueueNew (8, sizeof(I2C_Queue_t), &I2C_Queue_attributes);

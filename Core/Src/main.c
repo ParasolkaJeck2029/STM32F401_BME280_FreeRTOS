@@ -657,10 +657,18 @@ void StartI2C_Task(void *argument)
 void StartBtnReadTask(void *argument)
 {
   /* USER CODE BEGIN StartBtnReadTask */
+	UART_Queue_t msg;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){
+    	sprintf(msg.buff, "Button pressed\r\n");
+    	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(15);}
+    	sprintf(msg.buff, "Button relised\r\n");
+    	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    }
+    osDelay(10);
   }
   /* USER CODE END StartBtnReadTask */
 }

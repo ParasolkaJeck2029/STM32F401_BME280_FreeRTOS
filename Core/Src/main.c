@@ -78,6 +78,13 @@ const osThreadAttr_t I2C_Task_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for BtnReadTask */
+osThreadId_t BtnReadTaskHandle;
+const osThreadAttr_t BtnReadTask_attributes = {
+  .name = "BtnReadTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
 /* Definitions for UART_queue */
 osMessageQueueId_t UART_queueHandle;
 const osMessageQueueAttr_t UART_queue_attributes = {
@@ -140,6 +147,7 @@ void StartStabIndicationTask(void *argument);
 void StartUART_Task(void *argument);
 void StartADC_Task(void *argument);
 void StartI2C_Task(void *argument);
+void StartBtnReadTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void bme_init_queues();
@@ -225,6 +233,9 @@ int main(void)
   /* creation of I2C_Task */
   I2C_TaskHandle = osThreadNew(StartI2C_Task, NULL, &I2C_Task_attributes);
 
+  /* creation of BtnReadTask */
+  BtnReadTaskHandle = osThreadNew(StartBtnReadTask, NULL, &BtnReadTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -232,7 +243,7 @@ int main(void)
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   bme_init_queues();
-    /* USER CODE END RTOS_EVENTS */
+  /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
   osKernelStart();
@@ -634,6 +645,24 @@ void StartI2C_Task(void *argument)
 	  }
   }
   /* USER CODE END StartI2C_Task */
+}
+
+/* USER CODE BEGIN Header_StartBtnReadTask */
+/**
+* @brief Function implementing the BtnReadTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartBtnReadTask */
+void StartBtnReadTask(void *argument)
+{
+  /* USER CODE BEGIN StartBtnReadTask */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartBtnReadTask */
 }
 
 /**

@@ -114,6 +114,8 @@ typedef struct
 	char H6;
 }BME280_Calibrate_parametrs;
 
+void BME280_Init();
+
 void Error();
 
 void BME280_Check_Conection(uint8_t * result);
@@ -132,5 +134,8 @@ void I2Cx_WriteData(uint16_t Addr, uint8_t Reg, uint8_t Value);
 void I2Cx_WriteReg(uint8_t Reg, uint8_t Value);
 
 void BME280_ReadCalibration();
+
+void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres, uint8_t oversampling_hum, uint8_t mode);
+void BME280_GetOversamplingMode(uint8_t *array);
 
 #endif /* INC_BME280_FREERTOS_H_ */

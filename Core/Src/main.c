@@ -98,8 +98,10 @@ typedef struct{
 	uint8_t value;
 	uint8_t nom_of_func;
 	uint8_t * result;
+	uint8_t set_parameters[4];
 	void (* ptr_check_con)(uint8_t * result);
 	void (* ptr_set_one_par)(uint16_t reg, uint8_t value);
+	void (* ptr_set_four_par)(uint8_t par1,uint8_t par2,uint8_t par3,uint8_t par4);
 	void (* ptr_void)();
 	float (* ptr_read_value)();
 }I2C_Queue_t;
@@ -108,10 +110,18 @@ enum {
 	FUNC_VOID,
 	FUNC_PTR_UINT8,
 	FUNC_UINT16_UINT8,
-	FUNC_R_FLOAT
+	FUNC_R_FLOAT,
+	FUNC_FOUR_UINT8
 }NOM_OF_FUNC;
 
 uint8_t conection_status;
+
+struct oversamling_and_mode{
+	  uint8_t o_temp;
+	  uint8_t o_press;
+	  uint8_t o_hum;
+	  uint8_t mode;
+  }om;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -227,6 +237,19 @@ int main(void)
 
   i2c_msg.ptr_void = BME280_ReadCalibration;
   i2c_msg.nom_of_func = FUNC_VOID;
+  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+  i2c_msg.nom_of_func = FUNC_FOUR_UINT8;
+  i2c_msg.set_parameters[0] = BME280_OVERSAMPLING_X4;
+  i2c_msg.set_parameters[1] = BME280_OVERSAMPLING_X16;
+  i2c_msg.set_parameters[2] = BME280_OVERSAMPLING_X4;
+  i2c_msg.set_parameters[3] = BME280_MODE_NORMAL;
+  i2c_msg.ptr_set_four_par = BME280_SetOversampling;
+  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+  i2c_msg.result = &om;
+  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+  i2c_msg.ptr_check_con = BME280_GetOversamplingMode;
   osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
   /* USER CODE END RTOS_EVENTS */
@@ -488,6 +511,17 @@ void StartStabIndicationTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 	UART_Queue_t msg;
+    osDelay(100);
+	 sprintf(msg.buff, "Printing calibration parameters:\n\rT1: %d\n\rT2: %d\n\rT3: %d\n\r", BME280_Cal_par.T1, BME280_Cal_par.T2, BME280_Cal_par.T3);
+	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+	 sprintf(msg.buff, "P1: %d\n\rP2: %d\n\rP3: %d\n\rP4: %d\n\rP5: %d\n\rP6: %d\n\rP7: %d\n\rP8: %d\n\rP9: %d\n\r", BME280_Cal_par.P1, BME280_Cal_par.P2, BME280_Cal_par.P3, BME280_Cal_par.P4, BME280_Cal_par.P5, BME280_Cal_par.P6, BME280_Cal_par.P7, BME280_Cal_par.P8, BME280_Cal_par.P9);
+	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+	 sprintf(msg.buff, "H1: %d\n\rH2: %d\n\rH3: %d\n\rH4: %d\n\rH5: %d\n\rH6: %d\n\r", BME280_Cal_par.H1, BME280_Cal_par.H2, BME280_Cal_par.H3, BME280_Cal_par.H4, BME280_Cal_par.H6);
+	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+
+	 sprintf(msg.buff, "Oversamlping and mode:\n\rTemp: %d\n\rPress: %d\n\rHum: %d\n\rMode: %d\n\r", om.o_temp, om.o_press, om.o_hum, om.mode);
+	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+
   /* Infinite loop */
   for(;;)
   {
@@ -496,12 +530,7 @@ void StartStabIndicationTask(void *argument)
 	sprintf(msg.buff, "Toggle led\r\n");
 	osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
     osDelay(100);
-    sprintf(msg.buff, "Printing calibration parameters:\n\rT1: %d\n\rT2: %d\n\rT3: %d\n\r", BME280_Cal_par.T1, BME280_Cal_par.T2, BME280_Cal_par.T3);
-    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
-    sprintf(msg.buff, "P1: %d\n\rP2: %d\n\rP3: %d\n\rP4: %d\n\rP5: %d\n\rP6: %d\n\rP7: %d\n\rP8: %d\n\rP9: %d\n\r", BME280_Cal_par.P1, BME280_Cal_par.P2, BME280_Cal_par.P3, BME280_Cal_par.P4, BME280_Cal_par.P5, BME280_Cal_par.P6, BME280_Cal_par.P7, BME280_Cal_par.P8, BME280_Cal_par.P9);
-    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
-    sprintf(msg.buff, "H1: %d\n\rH2: %d\n\rH3: %d\n\rH4: %d\n\rH5: %d\n\rH6: %d\n\r", BME280_Cal_par.H1, BME280_Cal_par.H2, BME280_Cal_par.H3, BME280_Cal_par.H4, BME280_Cal_par.H6);
-    osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+
 
   }
   /* USER CODE END 5 */
@@ -569,6 +598,7 @@ void StartI2C_Task(void *argument)
 	  switch(msg.nom_of_func){
 	  case FUNC_PTR_UINT8: msg.ptr_check_con(msg.result);break;
 	  case FUNC_VOID: msg.ptr_void();break;
+	  case FUNC_FOUR_UINT8: msg.ptr_set_four_par(msg.set_parameters[0],msg.set_parameters[1],msg.set_parameters[2],msg.set_parameters[3]);break;
 	  default: {
 		  UART_Queue_t uart_msg;
 		  sprintf(uart_msg.buff, "Error value of nom_of_func\r\n");

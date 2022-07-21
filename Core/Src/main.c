@@ -142,7 +142,7 @@ void StartADC_Task(void *argument);
 void StartI2C_Task(void *argument);
 
 /* USER CODE BEGIN PFP */
-
+void bme_init_queues();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -231,49 +231,8 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
-  I2C_Queue_t i2c_msg;
-  i2c_msg.result = &conection_status;
-  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
-  i2c_msg.ptr_check_con = BME280_Check_Conection;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-  UART_Queue_t uart_msg;
-  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
-  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
-
-  i2c_msg.ptr_void = BME280_ReadCalibration;
-  i2c_msg.nom_of_func = FUNC_VOID;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-
-  i2c_msg.nom_of_func = FUNC_UINT8;
-  i2c_msg.value = BME280_OVERSAMPLING_X2;
-  i2c_msg.ptr_set_one_par = BME280_SetOversamplingHum;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-
-  i2c_msg.nom_of_func = FUNC_THREE_UINT8;
-  i2c_msg.set_parameters[0] = BME280_OVERSAMPLING_X4;
-  i2c_msg.set_parameters[1] = BME280_OVERSAMPLING_X16;
-  i2c_msg.set_parameters[2] = BME280_OVERSAMPLING_X4;
-  i2c_msg.set_parameters[3] = BME280_MODE_NORMAL;
-  i2c_msg.ptr_set_three_par = BME280_SetOversampling;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-
-  i2c_msg.result = &om;
-  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
-  i2c_msg.ptr_check_con = BME280_GetOversamplingMode;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-
-  i2c_msg.nom_of_func = FUNC_THREE_UINT8;
-  i2c_msg.set_parameters[0] = BME280_STANDBY_TIME_10;
-  i2c_msg.set_parameters[1] = BME280_FILTER_4;
-  i2c_msg.set_parameters[2] = BME280_3WIRE_SPI_OFF;
-  i2c_msg.ptr_set_three_par = BME280_SetConfig;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-
-  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
-  i2c_msg.result = &conf_sfs;
-  i2c_msg.ptr_check_con = BME280_GetConfig;
-  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-  /* USER CODE END RTOS_EVENTS */
+  bme_init_queues();
+    /* USER CODE END RTOS_EVENTS */
 
   /* Start scheduler */
   osKernelStart();
@@ -518,7 +477,51 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void bme_init_queues(){
+	I2C_Queue_t i2c_msg;
+	i2c_msg.result = &conection_status;
+	i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+	i2c_msg.ptr_check_con = BME280_Check_Conection;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	UART_Queue_t uart_msg;
+	sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
+	osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
 
+	i2c_msg.ptr_void = BME280_ReadCalibration;
+	i2c_msg.nom_of_func = FUNC_VOID;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	i2c_msg.nom_of_func = FUNC_UINT8;
+	i2c_msg.value = BME280_OVERSAMPLING_X2;
+	i2c_msg.ptr_set_one_par = BME280_SetOversamplingHum;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	i2c_msg.nom_of_func = FUNC_THREE_UINT8;
+	i2c_msg.set_parameters[0] = BME280_OVERSAMPLING_X4;
+	i2c_msg.set_parameters[1] = BME280_OVERSAMPLING_X16;
+	i2c_msg.set_parameters[2] = BME280_OVERSAMPLING_X4;
+	i2c_msg.set_parameters[3] = BME280_MODE_NORMAL;
+	i2c_msg.ptr_set_three_par = BME280_SetOversampling;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	i2c_msg.result = &om;
+	i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+	i2c_msg.ptr_check_con = BME280_GetOversamplingMode;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	i2c_msg.nom_of_func = FUNC_THREE_UINT8;
+	i2c_msg.set_parameters[0] = BME280_STANDBY_TIME_10;
+	i2c_msg.set_parameters[1] = BME280_FILTER_4;
+	i2c_msg.set_parameters[2] = BME280_3WIRE_SPI_OFF;
+	i2c_msg.ptr_set_three_par = BME280_SetConfig;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+	i2c_msg.result = &conf_sfs;
+	i2c_msg.ptr_check_con = BME280_GetConfig;
+	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartStabIndicationTask */

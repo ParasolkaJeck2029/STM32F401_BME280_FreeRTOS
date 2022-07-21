@@ -18,7 +18,7 @@ void BME280_Init(){
 	HAL_I2C_Init(&BME280_I2C_HANDLER);
 	uint8_t id_of_chip = BME280_GetID();
 	BME280_ReadCalibration();
-	BME280_SetOversampling(BME280_OVERSAMPLING_X8, BME280_OVERSAMPLING_X4, BME280_OVERSAMPLING_X4, BME280_MODE_NORMAL);
+	BME280_SetOversampling(BME280_OVERSAMPLING_X8, BME280_OVERSAMPLING_X4, BME280_MODE_NORMAL);
 	//BME280_SetConfig(BME280_STANDBY_TIME_10, BME280_FILTER_16, BME280_3WIRE_SPI_OFF);
 	//return id_of_chip;
 }
@@ -118,15 +118,11 @@ void BME280_ReadCalibration(){
 	*/
 }
 
-void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres, uint8_t oversampling_hum, uint8_t mode)
+void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres, uint8_t mode)
 {
 	//Writing a measuring mode, use defined macros BME280_OVERSAMPLING_X... and BME280_MODE_...
 	HAL_StatusTypeDef res;
 	res = HAL_OK;
-	if (oversampling_hum != BME280_OVERSAMPLING_X1 && oversampling_hum != BME280_OVERSAMPLING_X2 && oversampling_hum != BME280_OVERSAMPLING_X4 && oversampling_hum != BME280_OVERSAMPLING_X4 && oversampling_hum != BME280_OVERSAMPLING_X8 && oversampling_hum != BME280_OVERSAMPLING_X16){
-		res = HAL_ERROR;
-		return res;
-	}
 	if (oversampling_temp != BME280_OVERSAMPLING_X1 && oversampling_temp != BME280_OVERSAMPLING_X2 && oversampling_temp != BME280_OVERSAMPLING_X4 && oversampling_temp != BME280_OVERSAMPLING_X4 && oversampling_temp != BME280_OVERSAMPLING_X8 && oversampling_temp != BME280_OVERSAMPLING_X16){
 		res = HAL_ERROR;
 		return res;
@@ -139,7 +135,6 @@ void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres
 		res = HAL_ERROR;
 		return res;
 	}
-	BME280_WriteReg(REG_CTRL_HUM, oversampling_hum);
 	uint8_t reg_cntl_meas_value;
 	reg_cntl_meas_value = ((oversampling_temp)<<5)|((oversampling_pres)<<2)|(mode);
 	printf("ctrl_meas: %d\r\n", reg_cntl_meas_value);
@@ -162,3 +157,58 @@ void BME280_GetOversamplingMode(uint8_t *array){
 	//printf("temp: %d\r\npres: %d\r\nhum: %d\r\nmode: %d\r\n", ovrs_temp, ovrs_pres, ovrs_hum, mode);
 	//return value_ctrl_meas;
 }
+
+void BME280_SetOversamplingHum(uint8_t oversampling_hum){
+	if (oversampling_hum != BME280_OVERSAMPLING_X1 && oversampling_hum != BME280_OVERSAMPLING_X2 && oversampling_hum != BME280_OVERSAMPLING_X4 && oversampling_hum != BME280_OVERSAMPLING_X4 && oversampling_hum != BME280_OVERSAMPLING_X8 && oversampling_hum != BME280_OVERSAMPLING_X16){
+		return;
+	}
+	uint8_t reg_meas = BME280_ReadReg(REG_CTRL_MEAS);
+	osDelay(10);
+	BME280_WriteReg(REG_CTRL_HUM, oversampling_hum);
+	osDelay(10);
+	BME280_WriteReg(REG_CTRL_MEAS, reg_meas);
+}
+
+void BME280_SetOversamplingTemp(uint8_t oversampling_temp){
+	if (oversampling_temp != BME280_OVERSAMPLING_X1 && oversampling_temp != BME280_OVERSAMPLING_X2 && oversampling_temp != BME280_OVERSAMPLING_X4 && oversampling_temp != BME280_OVERSAMPLING_X4 && oversampling_temp != BME280_OVERSAMPLING_X8 && oversampling_temp != BME280_OVERSAMPLING_X16){
+		return;
+	}
+	uint8_t current_reg, new_reg;
+	current_reg = BME280_ReadReg(REG_CTRL_MEAS);
+	//printf("current_reg: %d\r\n", current_reg);
+	new_reg = current_reg & 0b00011111;
+	//printf("new_reg: %d\r\n", new_reg);
+	new_reg = new_reg | (oversampling_temp<<5);
+	//printf("new_reg: %d\r\n", new_reg);
+	osDelay(10);
+	BME280_WriteReg(REG_CTRL_MEAS, new_reg);
+}
+void BME280_SetOversamplingPress(uint8_t oversampling_pres){
+	if (oversampling_pres != BME280_OVERSAMPLING_X1 && oversampling_pres != BME280_OVERSAMPLING_X2 && oversampling_pres != BME280_OVERSAMPLING_X4 && oversampling_pres != BME280_OVERSAMPLING_X4 && oversampling_pres != BME280_OVERSAMPLING_X8 && oversampling_pres != BME280_OVERSAMPLING_X16){
+		return;
+	}
+	uint8_t current_reg, new_reg;
+	current_reg = BME280_ReadReg(REG_CTRL_MEAS);
+	//printf("current_reg: %d\r\n", current_reg);
+	new_reg = current_reg & 0b11100011;
+	//printf("new_reg: %d\r\n", new_reg);
+	new_reg = new_reg | (oversampling_pres<<2);
+	//printf("new_reg: %d\r\n", new_reg);
+	osDelay(10);
+	BME280_WriteReg(REG_CTRL_MEAS, new_reg);
+}
+void BME280_SetMode(uint8_t mode){
+	if(mode != BME280_MODE_SLEEP && mode != BME280_MODE_FORCED && mode != BME280_MODE_NORMAL){
+		return;
+	}
+	uint8_t current_reg, new_reg;
+	current_reg = BME280_ReadReg(REG_CTRL_MEAS);
+	//printf("current_reg: %d\r\n", current_reg);
+	new_reg = current_reg & 0b11111100;
+	//printf("new_reg: %d\r\n", new_reg);
+	new_reg = new_reg | mode;
+	//printf("new_reg: %d\r\n", new_reg);
+	osDelay(10);
+	BME280_WriteReg(REG_CTRL_MEAS, new_reg);
+}
+

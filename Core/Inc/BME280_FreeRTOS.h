@@ -135,7 +135,18 @@ void I2Cx_WriteReg(uint8_t Reg, uint8_t Value);
 
 void BME280_ReadCalibration();
 
-void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres, uint8_t oversampling_hum, uint8_t mode);
+void BME280_SetOversampling(uint8_t oversampling_temp, uint8_t oversampling_pres, uint8_t mode);
 void BME280_GetOversamplingMode(uint8_t *array);
+
+void BME280_SetOversamplingHum(uint8_t oversampling_hum);
+void BME280_SetOversamplingTemp(uint8_t oversampling_temp);
+void BME280_SetOversamplingPress(uint8_t oversampling_pres);
+void BME280_SetMode(uint8_t mode);
+
+void BME280_SetStandbyTime(uint8_t standby_time);
+void BME280_SetFilter(uint8_t filter_coeficient);
+void BME280_SPI_3Wire(uint8_t state);
+void BME280_GetConfig(uint8_t *array);
+
 
 #endif /* INC_BME280_FREERTOS_H_ */

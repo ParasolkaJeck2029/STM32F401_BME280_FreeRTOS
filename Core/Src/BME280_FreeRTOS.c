@@ -212,3 +212,22 @@ void BME280_SetMode(uint8_t mode){
 	BME280_WriteReg(REG_CTRL_MEAS, new_reg);
 }
 
+void BME280_SetConfig(uint8_t standby_time, uint8_t filter_coeficient, uint8_t spi_3wire_mode){
+	//set standby time, coefficient of filtration, and enable the 3-wire SPI
+	uint8_t reg_value;
+	reg_value = (standby_time << 5)|(filter_coeficient<<2)|(spi_3wire_mode);
+	//printf("reg_value: %d\n\r", reg_value);
+	BME280_WriteReg(REG_CONFIG, reg_value);
+	return 0;
+}
+void BME280_GetConfig(uint8_t *array){
+	uint8_t standby_time, filter, spi3wire;
+	uint8_t reg_value;
+	reg_value = BME280_ReadReg(REG_CONFIG);
+	standby_time = (reg_value & 0b11100000)>>5;
+	filter = (reg_value & 0b00011100)>>2;
+	spi3wire = (reg_value & 0b00000001);
+	*array = standby_time;
+	*(array + sizeof(uint8_t)) = filter;
+	*(array + 2 * sizeof(uint8_t)) = spi3wire;
+}

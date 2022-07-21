@@ -148,5 +148,7 @@ void BME280_SetFilter(uint8_t filter_coeficient);
 void BME280_SPI_3Wire(uint8_t state);
 void BME280_GetConfig(uint8_t *array);
 
+void BME280_SetConfig(uint8_t standby_time, uint8_t filter_coeficient, uint8_t spi_3wire_mode);
+void BME280_GetConfig(uint8_t *array);
 
 #endif /* INC_BME280_FREERTOS_H_ */

@@ -259,7 +259,7 @@ void BME280_GetPressure(float * result){
 	float pres;
 	float temp;
 	BME280_GetTemperature(&temp);
-	 BME280_ReadReg_BE_U24(REG_PRESS, &pres_raw);
+	BME280_ReadReg_BE_U24(REG_PRESS, &pres_raw);
 	pres_raw = pres_raw>>4;
 
 	var1 = ((int64_t) temp_int) - 128000;

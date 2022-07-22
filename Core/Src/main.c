@@ -700,12 +700,18 @@ void StartBtnReadTask(void *argument)
   for(;;)
   {
     if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){
-    	sprintf(msg.buff, "Button pressed\r\n");
-    	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
-    	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(15);}
+    	if (status_mode == 1){
+    		sprintf(msg.buff, "Button pressed\r\n");
+    		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	}
 
-    	sprintf(msg.buff, "Button relised\r\n");
-    	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(5);}
+
+    	if (status_mode == 1){
+    		sprintf(msg.buff, "Button relised\r\n");
+    		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	}
+
     	osSemaphoreAcquire(UART_DataCountingSem01Handle, 100);
     }
     osDelay(1);
@@ -730,9 +736,10 @@ void StartUART_DataReqTask(void *argument)
   for(;;)
   {
 	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
-		sprintf(msg.buff, "Button action\r\n");
-		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
-
+		if (status_mode == 1){
+			sprintf(msg.buff, "Button action\r\n");
+			osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+		}
 		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
 
 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
@@ -779,10 +786,23 @@ void StartCheckConnTask(void *argument)
 	  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
 	  i2c_msg.ptr_check_con = BME280_Check_Conection;
 	  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	  if (conection_status != HAL_OK){
+
+		  UART_Queue_t uart_msg;
+		  sprintf(uart_msg.buff, "\r\nError connection\r\n");
+		  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
+
+		  MX_I2C1_Init();
+		  osDelay(10);
+	  }
 	  UART_Queue_t uart_msg;
 	  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
 	  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
-	  osDelay(5000);
+	  if (conection_status == HAL_OK){
+		  osDelay(5000);
+	  }else{
+		  osDelay(1);
+	  }
   }
   /* USER CODE END StartCheckConnTask */
 }

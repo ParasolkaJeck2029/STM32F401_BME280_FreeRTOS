@@ -231,3 +231,88 @@ void BME280_GetConfig(uint8_t *array){
 	*(array + sizeof(uint8_t)) = filter;
 	*(array + 2 * sizeof(uint8_t)) = spi3wire;
 }
+
+int16_t BME280_ReadHumidityRAW(){
+	int16_t hum_value;
+	BME280_ReadReg_S16(REG_HUM, &hum_value);
+	hum_value = be16toword(hum_value);
+	return hum_value;
+}
+int32_t BME280_ReadTemperatureRAW(){ //read raw data of ADC sensor and turns over
+	int32_t temp_raw = 0;
+	BME280_ReadReg_U24(REG_TEMP, &temp_raw);
+	temp_raw = be24toword(temp_raw);
+	return (int32_t)temp_raw;
+}
+int32_t BME280_ReadPressureRAW(){//read raw data of ADC sensor and turns over
+	uint32_t pres_raw = 0;
+	BME280_ReadReg_U24(REG_HUM, (uint32_t *)pres_raw);
+	pres_raw = be24toword(pres_raw);
+	return (int32_t) pres_raw;
+}
+
+
+void BME280_GetPressure(float * result){
+	uint32_t pres_int, pres_raw;
+	int64_t p;
+	int64_t var1, var2;
+	float pres;
+	float temp;
+	BME280_GetTemperature(&temp);
+	 BME280_ReadReg_BE_U24(REG_PRESS, &pres_raw);
+	pres_raw = pres_raw>>4;
+
+	var1 = ((int64_t) temp_int) - 128000;
+	var2 = var1 * var1 * (int64_t)BME280_Cal_par.P6;
+	var2 = var2 + ((var1 * (int64_t)BME280_Cal_par.P5) << 17);
+	var2 = var2 + ((int64_t)BME280_Cal_par.P4 << 35);
+	var1 = ((var1 * var1 * (int64_t)BME280_Cal_par.P3) >> 8) + ((var1 * (int64_t)BME280_Cal_par.P2) << 12);
+	var1 = (((((int64_t)1) << 47) + var1)) * ((int64_t)BME280_Cal_par.P1) >> 33;
+	if (var1 == 0) {
+	  return 0; // avoid exception caused by division by zero
+	}
+	p = 1048576 - pres_raw;
+	p = (((p << 31) - var2) * 3125) / var1;
+	var1 = (((int64_t)BME280_Cal_par.P9) * (p >> 13) * (p >> 13)) >> 25;
+	var2 = (((int64_t)BME280_Cal_par.P8) * p) >> 19;
+	p = ((p + var1 + var2) >> 8) + ((int64_t)BME280_Cal_par.P7 << 4);
+	pres_int = ((p >> 8) * 1000) + (((p & 0xff) * 390625) / 100000);
+	pres = pres_int / 100.0f;
+	*result = pres;
+}
+
+void BME280_GetHumidity(float * result){
+	int32_t v_x1_u32r;
+	int32_t adc_H;
+	float hum_float;
+	adc_H = (int32_t)BME280_ReadHumidityRAW();
+	v_x1_u32r = (temp_int - ((int32_t)76800));
+	v_x1_u32r = (((((adc_H << 14) - (((int32_t)BME280_Cal_par.H4) << 20) -
+				(((int32_t)BME280_Cal_par.H5) * v_x1_u32r)) + ((int32_t)16384)) >> 15) *
+				(((((((v_x1_u32r * ((int32_t)BME280_Cal_par.H6)) >> 10) *
+				(((v_x1_u32r * ((int32_t)BME280_Cal_par.H3)) >> 11) + ((int32_t)32768))) >> 10) +
+				((int32_t)2097152)) * ((int32_t)BME280_Cal_par.H2) + 8192) >> 14));
+	v_x1_u32r = (v_x1_u32r - (((((v_x1_u32r >> 15) * (v_x1_u32r >> 15)) >> 7) *
+				((int32_t)BME280_Cal_par.H1)) >> 4));
+	v_x1_u32r = (v_x1_u32r < 0) ? 0 : v_x1_u32r;
+	v_x1_u32r = (v_x1_u32r > 419430400) ? 419430400 : v_x1_u32r;
+	hum_float = (v_x1_u32r>>12);
+	hum_float /= 1024.0f;
+	*result = hum_float;
+}
+
+void BME280_GetTemperature(float * result){
+	//return current temperature in float
+	float temp = 0;
+	int32_t temp_raw;
+	int32_t var1;
+	int32_t var2;
+	temp_raw = BME280_ReadTemperatureRAW();
+	temp_raw >>= 4;
+	var1 = ((((temp_raw>>3) - ((int32_t)BME280_Cal_par.T1 <<1))) *	((int32_t)BME280_Cal_par.T2)) >> 11;
+	var2 = (((((temp_raw>>4) - ((int32_t)BME280_Cal_par.T1)) *	((temp_raw>>4) - ((int32_t)BME280_Cal_par.T1))) >> 12) *((int32_t)BME280_Cal_par.T3)) >> 14;
+	temp_int = var1 + var2;
+	temp = (var1 +var2) / 5120.0;
+	//printf("Temp = %.3f, %.3f *C\n\r", temper, temp);
+	*result = temp;
+}

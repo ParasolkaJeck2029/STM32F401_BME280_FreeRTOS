@@ -113,23 +113,23 @@ typedef struct{
 	char buff[100];
 }UART_Queue_t;
 typedef struct{
-	uint16_t reg;
 	uint8_t value;
 	uint8_t nom_of_func;
 	uint8_t * result;
 	uint8_t set_parameters[3];
+	float * result_float;
 	void (* ptr_check_con)(uint8_t * result);
 	void (* ptr_set_one_par)(uint8_t value);
 	void (* ptr_set_three_par)(uint8_t par1,uint8_t par2,uint8_t par3);
 	void (* ptr_void)();
-	float (* ptr_read_value)();
+	void (* ptr_read_value)(float * result);
 }I2C_Queue_t;
 
 enum {
 	FUNC_VOID,
 	FUNC_PTR_UINT8,
 	FUNC_UINT8,
-	FUNC_R_FLOAT,
+	FUNC_PTR_FLOAT,
 	FUNC_THREE_UINT8
 }NOM_OF_FUNC;
 
@@ -657,6 +657,7 @@ void StartI2C_Task(void *argument)
 	  case FUNC_PTR_UINT8: msg.ptr_check_con(msg.result);break;
 	  case FUNC_VOID: msg.ptr_void();break;
 	  case FUNC_THREE_UINT8: msg.ptr_set_three_par(msg.set_parameters[0],msg.set_parameters[1],msg.set_parameters[2]);break;
+	  case FUNC_PTR_FLOAT: msg.ptr_read_value(msg.result_float);break;
 	  default: {
 		  UART_Queue_t uart_msg;
 		  sprintf(uart_msg.buff, "Error value of nom_of_func\r\n");
@@ -685,11 +686,12 @@ void StartBtnReadTask(void *argument)
     	sprintf(msg.buff, "Button pressed\r\n");
     	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
     	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(15);}
+
     	sprintf(msg.buff, "Button relised\r\n");
     	osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
     	osSemaphoreAcquire(UART_DataCountingSem01Handle, 100);
     }
-    osDelay(10);
+    osDelay(1);
   }
   /* USER CODE END StartBtnReadTask */
 }
@@ -705,11 +707,23 @@ void StartUART_DataReqTask(void *argument)
 {
   /* USER CODE BEGIN StartUART_DataReqTask */
 	UART_Queue_t msg;
+	I2C_Queue_t i2c_msg;
+
   /* Infinite loop */
   for(;;)
   {
 	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
 		sprintf(msg.buff, "Button action\r\n");
+		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+
+		float temperature = 1000.0f;
+		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+		i2c_msg.ptr_read_value = BME280_GetTemperature;
+		i2c_msg.result_float = &temperature;
+		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+		while(temperature == 1000.0f){osDelay(1);}
+
+		sprintf(msg.buff, "Temperature: %.03f\r\n", temperature);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
 	}
     osDelay(1);

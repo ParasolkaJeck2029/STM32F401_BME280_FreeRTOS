@@ -75,7 +75,7 @@ const osThreadAttr_t ADC_Task_attributes = {
 osThreadId_t I2C_TaskHandle;
 const osThreadAttr_t I2C_Task_attributes = {
   .name = "I2C_Task",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for BtnReadTask */
@@ -89,7 +89,7 @@ const osThreadAttr_t BtnReadTask_attributes = {
 osThreadId_t UART_DataReqTasHandle;
 const osThreadAttr_t UART_DataReqTas_attributes = {
   .name = "UART_DataReqTas",
-  .stack_size = 256 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for UART_queue */
@@ -716,14 +716,27 @@ void StartUART_DataReqTask(void *argument)
 		sprintf(msg.buff, "Button action\r\n");
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
 
-		float temperature = 1000.0f;
+		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
+
 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
 		i2c_msg.ptr_read_value = BME280_GetTemperature;
 		i2c_msg.result_float = &temperature;
 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 		while(temperature == 1000.0f){osDelay(1);}
 
-		sprintf(msg.buff, "Temperature: %.03f\r\n", temperature);
+		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+		i2c_msg.ptr_read_value = BME280_GetPressure;
+		i2c_msg.result_float = &press;
+		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+		while(temperature == 0.0f){osDelay(1);}
+
+		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+		i2c_msg.ptr_read_value = BME280_GetHumidity;
+		i2c_msg.result_float = &hum;
+		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+		while(temperature == 0.0f){osDelay(1);}
+
+		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
 	}
     osDelay(1);

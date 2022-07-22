@@ -92,6 +92,13 @@ const osThreadAttr_t UART_DataReqTas_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for CheckConnTask */
+osThreadId_t CheckConnTaskHandle;
+const osThreadAttr_t CheckConnTask_attributes = {
+  .name = "CheckConnTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* Definitions for UART_queue */
 osMessageQueueId_t UART_queueHandle;
 const osMessageQueueAttr_t UART_queue_attributes = {
@@ -134,7 +141,7 @@ enum {
 }NOM_OF_FUNC;
 
 uint8_t conection_status;
-
+uint8_t status_mode;
 struct oversamling_and_mode{
 	  uint8_t o_temp;
 	  uint8_t o_press;
@@ -161,6 +168,7 @@ void StartADC_Task(void *argument);
 void StartI2C_Task(void *argument);
 void StartBtnReadTask(void *argument);
 void StartUART_DataReqTask(void *argument);
+void StartCheckConnTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void bme_init_queues();
@@ -204,7 +212,11 @@ int main(void)
   MX_IWDG_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
+	  status_mode = 1;
+  }else{
+	  status_mode = 0;
+  }
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -255,6 +267,9 @@ int main(void)
 
   /* creation of UART_DataReqTas */
   UART_DataReqTasHandle = osThreadNew(StartUART_DataReqTask, NULL, &UART_DataReqTas_attributes);
+
+  /* creation of CheckConnTask */
+  CheckConnTaskHandle = osThreadNew(StartCheckConnTask, NULL, &CheckConnTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -584,9 +599,11 @@ void StartStabIndicationTask(void *argument)
   {
 	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 	HAL_IWDG_Refresh(&hiwdg);
-	sprintf(msg.buff, "Toggle led\r\n");
-	osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
-    osDelay(100);
+	if (status_mode == 1){
+		sprintf(msg.buff, "Toggle led\r\n");
+		osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
+	}
+	osDelay(100);
 
 
   }
@@ -742,6 +759,32 @@ void StartUART_DataReqTask(void *argument)
     osDelay(1);
   }
   /* USER CODE END StartUART_DataReqTask */
+}
+
+/* USER CODE BEGIN Header_StartCheckConnTask */
+/**
+* @brief Function implementing the CheckConnTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCheckConnTask */
+void StartCheckConnTask(void *argument)
+{
+  /* USER CODE BEGIN StartCheckConnTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  I2C_Queue_t i2c_msg;
+	  i2c_msg.result = &conection_status;
+	  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
+	  i2c_msg.ptr_check_con = BME280_Check_Conection;
+	  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	  UART_Queue_t uart_msg;
+	  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
+	  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
+	  osDelay(5000);
+  }
+  /* USER CODE END StartCheckConnTask */
 }
 
 /**

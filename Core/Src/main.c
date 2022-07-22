@@ -538,15 +538,14 @@ void bme_init_queues(){
 	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
 	i2c_msg.nom_of_func = FUNC_UINT8;
-	i2c_msg.value = BME280_OVERSAMPLING_X2;
+	i2c_msg.value = BME280_OVERSAMPLING_X8;
 	i2c_msg.ptr_set_one_par = BME280_SetOversamplingHum;
 	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
 	i2c_msg.nom_of_func = FUNC_THREE_UINT8;
 	i2c_msg.set_parameters[0] = BME280_OVERSAMPLING_X4;
-	i2c_msg.set_parameters[1] = BME280_OVERSAMPLING_X16;
-	i2c_msg.set_parameters[2] = BME280_OVERSAMPLING_X4;
-	i2c_msg.set_parameters[3] = BME280_MODE_NORMAL;
+	i2c_msg.set_parameters[1] = BME280_OVERSAMPLING_X4;
+	i2c_msg.set_parameters[2] = BME280_MODE_NORMAL;
 	i2c_msg.ptr_set_three_par = BME280_SetOversampling;
 	osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
@@ -746,19 +745,19 @@ void StartUART_DataReqTask(void *argument)
 		i2c_msg.ptr_read_value = BME280_GetTemperature;
 		i2c_msg.result_float = &temperature;
 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-		while(temperature == 1000.0f){osDelay(1);}
+		while(temperature == 1000.0f){osDelay(10);}
 
 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
 		i2c_msg.ptr_read_value = BME280_GetPressure;
 		i2c_msg.result_float = &press;
 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-		while(temperature == 0.0f){osDelay(1);}
 
 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
 		i2c_msg.ptr_read_value = BME280_GetHumidity;
 		i2c_msg.result_float = &hum;
 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-		while(temperature == 0.0f){osDelay(1);}
+
+		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);}
 
 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);

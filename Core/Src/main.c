@@ -142,6 +142,14 @@ enum {
 
 uint8_t conection_status;
 uint8_t status_mode;
+
+enum{
+	NORMAL_WORK,
+	DEBUG_WORK,
+	WARNING_WORK,
+	ERROR_WORK
+}STATUS_OF_WORK;
+
 struct oversamling_and_mode{
 	  uint8_t o_temp;
 	  uint8_t o_press;
@@ -213,9 +221,9 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_RESET){
-	  status_mode = 1;
+	  status_mode = DEBUG_WORK;
   }else{
-	  status_mode = 0;
+	  status_mode = NORMAL_WORK;
   }
   /* USER CODE END 2 */
 
@@ -587,10 +595,8 @@ void StartStabIndicationTask(void *argument)
 	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
 	 sprintf(msg.buff, "H1: %d\n\rH2: %d\n\rH3: %d\n\rH4: %d\n\rH5: %d\n\rH6: %d\n\r", BME280_Cal_par.H1, BME280_Cal_par.H2, BME280_Cal_par.H3, BME280_Cal_par.H4, BME280_Cal_par.H6);
 	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
-
 	 sprintf(msg.buff, "\n\rOversamlping and mode:\n\rTemp: %d\n\rPress: %d\n\rHum: %d\n\rMode: %d\n\r", om.o_temp, om.o_press, om.o_hum, om.mode);
 	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
-
 	 sprintf(msg.buff, "\n\rStandby time, filter and SPI 3-wire:\n\rStandby time: %d\n\rFilter: %d\n\rSPI 3-wire: %d\n\r", conf_sfs.standby_time, conf_sfs.filter, conf_sfs.SPI_three_wire);
 	 osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
   /* Infinite loop */
@@ -598,11 +604,15 @@ void StartStabIndicationTask(void *argument)
   {
 	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 	HAL_IWDG_Refresh(&hiwdg);
-	if (status_mode == 1){
+	if (status_mode == DEBUG_WORK){
 		sprintf(msg.buff, "Toggle led\r\n");
 		osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
 	}
-	osDelay(100);
+	switch (status_mode){
+	case NORMAL_WORK: osDelay(500);break;
+	case ERROR_WORK: osDelay(50);break;
+	case WARNING_WORK: osDelay(200);break;
+	}
 
 
   }
@@ -640,12 +650,34 @@ void StartADC_Task(void *argument)
 {
   /* USER CODE BEGIN StartADC_Task */
 	UART_Queue_t msg;
+	uint16_t last_adc[5];
   /* Infinite loop */
   for(;;)
   {
     HAL_ADC_Start(&hadc1);
     uint16_t adc_value;
     adc_value = HAL_ADC_GetValue(&hadc1);
+    for (uint8_t i = 0; i < 4; i++){
+    	last_adc[i] = last_adc[i + 1];
+    }
+    last_adc[4] = adc_value;
+
+    uint8_t warning_adc = 0;
+    for (uint8_t i = 0; i < 5; i++){
+    	if (last_adc[i] == 0){
+    		warning_adc = 1;
+    	}else{
+    		warning_adc = 0;
+    		break;
+    	}
+    }
+    if (warning_adc == 1){
+    	status_mode = WARNING_WORK;
+    }else{
+    	if (status_mode != ERROR_WORK){
+    		status_mode = NORMAL_WORK;
+    	}
+    }
     sprintf(msg.buff, "ADC value: %d\r\n", adc_value);
     osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
     osDelay(1000);
@@ -787,12 +819,17 @@ void StartCheckConnTask(void *argument)
 	  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 	  if (conection_status != HAL_OK){
 
+		  status_mode = ERROR_WORK;
+
 		  UART_Queue_t uart_msg;
 		  sprintf(uart_msg.buff, "\r\nError connection\r\n");
 		  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
 
 		  MX_I2C1_Init();
 		  osDelay(10);
+	  }
+	  if (conection_status == HAL_OK && status_mode != WARNING_WORK){
+		  status_mode = NORMAL_WORK;
 	  }
 	  UART_Queue_t uart_msg;
 	  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);

@@ -19,9 +19,11 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usbd_cdc_if.h"
 #include <stdio.h>
 #include <string.h>
 #include "BME280_FreeRTOS.h"
@@ -108,6 +110,11 @@ const osMessageQueueAttr_t UART_queue_attributes = {
 osMessageQueueId_t I2C_QueueHandle;
 const osMessageQueueAttr_t I2C_Queue_attributes = {
   .name = "I2C_Queue"
+};
+/* Definitions for USB_Mutex */
+osMutexId_t USB_MutexHandle;
+const osMutexAttr_t USB_Mutex_attributes = {
+  .name = "USB_Mutex"
 };
 /* Definitions for UART_DataCountingSem01 */
 osSemaphoreId_t UART_DataCountingSem01Handle;
@@ -229,6 +236,9 @@ int main(void)
 
   /* Init scheduler */
   osKernelInitialize();
+  /* Create the mutex(es) */
+  /* creation of USB_Mutex */
+  USB_MutexHandle = osMutexNew(&USB_Mutex_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -320,16 +330,15 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 84;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -586,6 +595,8 @@ void bme_init_queues(){
 /* USER CODE END Header_StartStabIndicationTask */
 void StartStabIndicationTask(void *argument)
 {
+  /* init code for USB_DEVICE */
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 5 */
 	UART_Queue_t msg;
     osDelay(100);
@@ -609,9 +620,10 @@ void StartStabIndicationTask(void *argument)
 		osMessageQueuePut(UART_queueHandle, &msg, 0, osWaitForever);
 	}
 	switch (status_mode){
+	case DEBUG_WORK: osDelay(150);
 	case NORMAL_WORK: osDelay(500);break;
 	case ERROR_WORK: osDelay(50);break;
-	case WARNING_WORK: osDelay(200);break;
+	case WARNING_WORK: osDelay(250);break;
 	}
 
 
@@ -674,7 +686,7 @@ void StartADC_Task(void *argument)
     if (warning_adc == 1){
     	status_mode = WARNING_WORK;
     }else{
-    	if (status_mode != ERROR_WORK){
+    	if (status_mode != ERROR_WORK || status_mode != DEBUG_WORK){
     		status_mode = NORMAL_WORK;
     	}
     }
@@ -793,6 +805,10 @@ void StartUART_DataReqTask(void *argument)
 
 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+
+		osMutexAcquire(USB_MutexHandle, osWaitForever);
+		CDC_Transmit_FS(msg.buff, strlen(msg.buff));
+		osMutexRelease(USB_MutexHandle);
 	}
     osDelay(1);
   }
@@ -828,7 +844,7 @@ void StartCheckConnTask(void *argument)
 		  MX_I2C1_Init();
 		  osDelay(10);
 	  }
-	  if (conection_status == HAL_OK && status_mode != WARNING_WORK){
+	  if (conection_status == HAL_OK && status_mode != WARNING_WORK && status_mode != DEBUG_WORK){
 		  status_mode = NORMAL_WORK;
 	  }
 	  UART_Queue_t uart_msg;

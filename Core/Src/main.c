@@ -772,12 +772,13 @@ void StartBtnReadTask(void *argument)
 void StartUART_DataReqTask(void *argument)
 {
   /* USER CODE BEGIN StartUART_DataReqTask */
-	UART_Queue_t msg;
-	I2C_Queue_t i2c_msg;
+	UART_Queue_t msg;	//input uart message from queue
+	I2C_Queue_t i2c_msg;	//
 
   /* Infinite loop */
   for(;;)
   {
+	  /*===============If button was press=========================*/
 	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
 		if (status_mode == 1){
 			sprintf(msg.buff, "Button action\r\n");
@@ -805,7 +806,7 @@ void StartUART_DataReqTask(void *argument)
 
 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
-
+		/*=========Mutex for USB======================*/
 		osMutexAcquire(USB_MutexHandle, osWaitForever);
 		CDC_Transmit_FS(msg.buff, strlen(msg.buff));
 		osMutexRelease(USB_MutexHandle);
@@ -826,13 +827,17 @@ void StartCheckConnTask(void *argument)
 {
   /* USER CODE BEGIN StartCheckConnTask */
   /* Infinite loop */
+
+	/*Regular check connection to BME280*/
   for(;;)
   {
+	  /*Forming the queue to I2C, function BME280_Check_Conection*/
 	  I2C_Queue_t i2c_msg;
 	  i2c_msg.result = &conection_status;
 	  i2c_msg.nom_of_func = FUNC_PTR_UINT8;
 	  i2c_msg.ptr_check_con = BME280_Check_Conection;
 	  osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	  /*If connection is failed*/
 	  if (conection_status != HAL_OK){
 
 		  status_mode = ERROR_WORK;
@@ -847,9 +852,12 @@ void StartCheckConnTask(void *argument)
 	  if (conection_status == HAL_OK && status_mode != WARNING_WORK && status_mode != DEBUG_WORK){
 		  status_mode = NORMAL_WORK;
 	  }
+	  /*Forming the queue to UART transmit*/
 	  UART_Queue_t uart_msg;
 	  sprintf(uart_msg.buff, "\r\nConnection to BME280 status: 0x%x\r\n", conection_status);
 	  osMessageQueuePut(UART_queueHandle, &uart_msg, 0, osWaitForever);
+
+	  /*Fast request if is connection error */
 	  if (conection_status == HAL_OK){
 		  osDelay(5000);
 	  }else{

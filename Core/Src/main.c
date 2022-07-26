@@ -742,20 +742,38 @@ void StartBtnReadTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	static uint32_t timer_press;
     if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){
-    	if (status_mode == 1){
+
+    	if (status_mode == DEBUG_WORK){
     		sprintf(msg.buff, "Button pressed\r\n");
     		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
     	}
 
-    	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(5);}
+    	while(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)==GPIO_PIN_RESET){osDelay(1);}
 
-    	if (status_mode == 1){
-    		sprintf(msg.buff, "Button relised\r\n");
-    		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    	uint32_t hold_time = HAL_GetTick() - timer_press;
+
+    	/*Virtual COM Port*/
+    	sprintf(msg.buff, "Time of hold: %d\r\n", hold_time);
+    	osMutexAcquire(USB_MutexHandle, 250);
+    	CDC_Transmit_FS(msg.buff, strlen(msg.buff));
+    	osMutexRelease(USB_MutexHandle);
+
+    	if (hold_time > 400){
+    		//osSemaphoreAcquire(, timeout)
+    	}
+    	if (hold_time > 20 && hold_time < 400){
+    		if (status_mode == 1){
+    			/*UART*/
+    			sprintf(msg.buff, "Button relised\r\n");
+    			osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+    		}
+    		osSemaphoreAcquire(UART_DataCountingSem01Handle, 100);
     	}
 
-    	osSemaphoreAcquire(UART_DataCountingSem01Handle, 100);
+    }else{
+    	timer_press = HAL_GetTick();
     }
     osDelay(1);
   }
@@ -802,10 +820,12 @@ void StartUART_DataReqTask(void *argument)
 		i2c_msg.result_float = &hum;
 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
-		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);}
+		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);} // wait for end of all function
 
+		/*=========Forming the buffer to uart queue and put in queue========*/
 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+
 		/*=========Mutex for USB======================*/
 		osMutexAcquire(USB_MutexHandle, osWaitForever);
 		CDC_Transmit_FS(msg.buff, strlen(msg.buff));

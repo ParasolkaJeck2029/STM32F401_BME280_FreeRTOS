@@ -835,6 +835,7 @@ void StartDataReqTask(void *argument)
 
 
 	 	}
+	 	/*=========If button was holded===========*/
 	 	if (osSemaphoreRelease(USB_DataCountingSemHandle) == HAL_OK){
 	 		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
 	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;

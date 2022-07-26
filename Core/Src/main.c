@@ -44,7 +44,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc1;
 
 I2C_HandleTypeDef hi2c1;
 
@@ -87,10 +87,10 @@ const osThreadAttr_t BtnReadTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for UART_DataReqTas */
-osThreadId_t UART_DataReqTasHandle;
-const osThreadAttr_t UART_DataReqTas_attributes = {
-  .name = "UART_DataReqTas",
+/* Definitions for DataReqTas */
+osThreadId_t DataReqTasHandle;
+const osThreadAttr_t DataReqTas_attributes = {
+  .name = "DataReqTas",
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
@@ -120,6 +120,11 @@ const osMutexAttr_t USB_Mutex_attributes = {
 osSemaphoreId_t UART_DataCountingSem01Handle;
 const osSemaphoreAttr_t UART_DataCountingSem01_attributes = {
   .name = "UART_DataCountingSem01"
+};
+/* Definitions for USB_DataCountingSem */
+osSemaphoreId_t USB_DataCountingSemHandle;
+const osSemaphoreAttr_t USB_DataCountingSem_attributes = {
+  .name = "USB_DataCountingSem"
 };
 /* USER CODE BEGIN PV */
 extern BME280_Calibrate_parametrs BME280_Cal_par;
@@ -182,7 +187,7 @@ void StartUART_Task(void *argument);
 void StartADC_Task(void *argument);
 void StartI2C_Task(void *argument);
 void StartBtnReadTask(void *argument);
-void StartUART_DataReqTask(void *argument);
+void StartDataReqTask(void *argument);
 void StartCheckConnTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -248,6 +253,9 @@ int main(void)
   /* creation of UART_DataCountingSem01 */
   UART_DataCountingSem01Handle = osSemaphoreNew(10, 10, &UART_DataCountingSem01_attributes);
 
+  /* creation of USB_DataCountingSem */
+  USB_DataCountingSemHandle = osSemaphoreNew(10, 10, &USB_DataCountingSem_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -283,8 +291,8 @@ int main(void)
   /* creation of BtnReadTask */
   BtnReadTaskHandle = osThreadNew(StartBtnReadTask, NULL, &BtnReadTask_attributes);
 
-  /* creation of UART_DataReqTas */
-  UART_DataReqTasHandle = osThreadNew(StartUART_DataReqTask, NULL, &UART_DataReqTas_attributes);
+  /* creation of DataReqTas */
+  DataReqTasHandle = osThreadNew(StartDataReqTask, NULL, &DataReqTas_attributes);
 
   /* creation of CheckConnTask */
   CheckConnTaskHandle = osThreadNew(StartCheckConnTask, NULL, &CheckConnTask_attributes);
@@ -761,7 +769,7 @@ void StartBtnReadTask(void *argument)
     	osMutexRelease(USB_MutexHandle);
 
     	if (hold_time > 400){
-    		//osSemaphoreAcquire(, timeout)
+    		osSemaphoreAcquire(USB_DataCountingSemHandle, 100);
     	}
     	if (hold_time > 20 && hold_time < 400){
     		if (status_mode == 1){
@@ -780,60 +788,83 @@ void StartBtnReadTask(void *argument)
   /* USER CODE END StartBtnReadTask */
 }
 
-/* USER CODE BEGIN Header_StartUART_DataReqTask */
+/* USER CODE BEGIN Header_StartDataReqTask */
 /**
-* @brief Function implementing the UART_DataReqTas thread.
+* @brief Function implementing the DataReqTas thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartUART_DataReqTask */
-void StartUART_DataReqTask(void *argument)
+/* USER CODE END Header_StartDataReqTask */
+void StartDataReqTask(void *argument)
 {
-  /* USER CODE BEGIN StartUART_DataReqTask */
+  /* USER CODE BEGIN StartDataReqTask */
 	UART_Queue_t msg;	//input uart message from queue
-	I2C_Queue_t i2c_msg;	//
-
+		I2C_Queue_t i2c_msg;
   /* Infinite loop */
   for(;;)
   {
 	  /*===============If button was press=========================*/
-	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
-		if (status_mode == 1){
-			sprintf(msg.buff, "Button action\r\n");
-			osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
-		}
-		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
+	 	if (osSemaphoreRelease(UART_DataCountingSem01Handle) == HAL_OK){
+	 		if (status_mode == 1){
+	 			sprintf(msg.buff, "Button action\r\n");
+	 			osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+	 		}
+	 		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
 
-		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
-		i2c_msg.ptr_read_value = BME280_GetTemperature;
-		i2c_msg.result_float = &temperature;
-		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
-		while(temperature == 1000.0f){osDelay(10);}
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetTemperature;
+	 		i2c_msg.result_float = &temperature;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	 		while(temperature == 1000.0f){osDelay(10);}
 
-		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
-		i2c_msg.ptr_read_value = BME280_GetPressure;
-		i2c_msg.result_float = &press;
-		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetPressure;
+	 		i2c_msg.result_float = &press;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
-		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
-		i2c_msg.ptr_read_value = BME280_GetHumidity;
-		i2c_msg.result_float = &hum;
-		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetHumidity;
+	 		i2c_msg.result_float = &hum;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
 
-		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);} // wait for end of all function
+	 		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);} // wait for end of all function
 
-		/*=========Forming the buffer to uart queue and put in queue========*/
-		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
-		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
+	 		/*=========Forming the buffer to uart queue and put in queue========*/
+	 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
+	 		osMessageQueuePut(UART_queueHandle, &msg, 0, 100);
 
-		/*=========Mutex for USB======================*/
-		osMutexAcquire(USB_MutexHandle, osWaitForever);
-		CDC_Transmit_FS(msg.buff, strlen(msg.buff));
-		osMutexRelease(USB_MutexHandle);
-	}
-    osDelay(1);
+
+	 	}
+	 	if (osSemaphoreRelease(USB_DataCountingSemHandle) == HAL_OK){
+	 		float temperature = 1000.0f, press = 0.0f, hum = 0.0f;
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetTemperature;
+	 		i2c_msg.result_float = &temperature;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+	 		while(temperature == 1000.0f){osDelay(10);}
+
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetPressure;
+	 		i2c_msg.result_float = &press;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	 		i2c_msg.nom_of_func = FUNC_PTR_FLOAT;
+	 		i2c_msg.ptr_read_value = BME280_GetHumidity;
+	 		i2c_msg.result_float = &hum;
+	 		osMessageQueuePut(I2C_QueueHandle, &i2c_msg, 0, osWaitForever);
+
+	 		while (osMessageQueueGetCount(I2C_QueueHandle) != 0 ){osDelay(1);} // wait for end of all function
+
+	 		/*=========Forming the buffer to USB queue and put in queue========*/
+	 		sprintf(msg.buff, "\r\nTemperature: %.03f *C\r\nPressure: %.03f hPa\r\nHumidaty: %.03f %%\r\n\r\n", temperature, press/1000.0f, hum);
+	 		/*=========Mutex for USB======================*/
+	 		osMutexAcquire(USB_MutexHandle, osWaitForever);
+	 		CDC_Transmit_FS(msg.buff, strlen(msg.buff));
+	 		osMutexRelease(USB_MutexHandle);
+	 	}
+	     osDelay(1);
   }
-  /* USER CODE END StartUART_DataReqTask */
+  /* USER CODE END StartDataReqTask */
 }
 
 /* USER CODE BEGIN Header_StartCheckConnTask */

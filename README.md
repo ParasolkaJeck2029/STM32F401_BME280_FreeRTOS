@@ -9,6 +9,8 @@ For transive all data used queues and semaphors.
 ## Features
 
 - Queue for UART and I2C
+- Mutex for USB 
+- COM Port USB to data transive
 - Conection check 
 - Using onboard button
 - WatchDog enable 

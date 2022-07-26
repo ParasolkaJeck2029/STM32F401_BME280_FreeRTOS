@@ -41,14 +41,11 @@ TIM_HandleTypeDef        htim9;
 HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 {
   RCC_ClkInitTypeDef    clkconfig;
-  uint32_t              uwTimclock = 0;
-  uint32_t              uwPrescalerValue = 0;
-  uint32_t              pFLatency;
-  /*Configure the TIM9 IRQ priority */
-  HAL_NVIC_SetPriority(TIM1_BRK_TIM9_IRQn, TickPriority ,0);
+  uint32_t              uwTimclock = 0U;
 
-  /* Enable the TIM9 global Interrupt */
-  HAL_NVIC_EnableIRQ(TIM1_BRK_TIM9_IRQn);
+  uint32_t              uwPrescalerValue = 0U;
+  uint32_t              pFLatency;
+  HAL_StatusTypeDef     status;
 
   /* Enable TIM9 clock */
   __HAL_RCC_TIM9_CLK_ENABLE();
@@ -58,6 +55,7 @@ HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 
   /* Compute TIM9 clock */
   uwTimclock = HAL_RCC_GetPCLK2Freq();
+
   /* Compute the prescaler value to have TIM9 counter clock equal to 1MHz */
   uwPrescalerValue = (uint32_t) ((uwTimclock / 1000000U) - 1U);
 
@@ -74,15 +72,33 @@ HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
   htim9.Init.Prescaler = uwPrescalerValue;
   htim9.Init.ClockDivision = 0;
   htim9.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim9.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 
-  if(HAL_TIM_Base_Init(&htim9) == HAL_OK)
+  status = HAL_TIM_Base_Init(&htim9);
+  if (status == HAL_OK)
   {
     /* Start the TIM time Base generation in interrupt mode */
-    return HAL_TIM_Base_Start_IT(&htim9);
+    status = HAL_TIM_Base_Start_IT(&htim9);
+    if (status == HAL_OK)
+    {
+    /* Enable the TIM9 global Interrupt */
+        HAL_NVIC_EnableIRQ(TIM1_BRK_TIM9_IRQn);
+      /* Configure the SysTick IRQ priority */
+      if (TickPriority < (1UL << __NVIC_PRIO_BITS))
+      {
+        /* Configure the TIM IRQ priority */
+        HAL_NVIC_SetPriority(TIM1_BRK_TIM9_IRQn, TickPriority, 0U);
+        uwTickPrio = TickPriority;
+      }
+      else
+      {
+        status = HAL_ERROR;
+      }
+    }
   }
 
-  /* Return function status */
-  return HAL_ERROR;
+ /* Return function status */
+  return status;
 }
 
 /**
